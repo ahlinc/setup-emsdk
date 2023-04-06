@@ -174,6 +174,11 @@ function cleanup() {
                 const zipsPath = path.join(installFolder, 'emsdk-main', 'zips');
                 yield io.rmRF(zipsPath);
                 fs.mkdirSync(installFolder, { recursive: true });
+                const existingCacheKey = yield cache.restoreCache([installFolder], emArgs.cacheKey, undefined, { lookupOnly: true });
+                if (existingCacheKey) {
+                    core.info(`Skipping cache key that already exists "${existingCacheKey}"`);
+                    return;
+                }
                 yield cache.saveCache([installFolder], emArgs.cacheKey);
             }
         }

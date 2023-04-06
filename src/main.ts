@@ -146,6 +146,11 @@ async function cleanup(): Promise<void> {
       const zipsPath = path.join(installFolder, 'emsdk-main', 'zips');
       await io.rmRF(zipsPath);
       fs.mkdirSync(installFolder, { recursive: true });
+      const existingCacheKey = await cache.restoreCache([installFolder], emArgs.cacheKey, undefined, { lookupOnly: true });
+      if (existingCacheKey) {
+        core.info(`Skipping cache key that already exists "${existingCacheKey}"`);
+        return;
+      }
       await cache.saveCache([installFolder], emArgs.cacheKey);
     }
   } catch (error) {
