@@ -25,33 +25,34 @@ async function run() {
   try {
     const emArgs = getEmArgs();
     stateHelper.setFoundInCache(false);
+    const cacheFolder = path.normalize(emArgs.cacheFolder);
     let emsdkFolder;
 
-    if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.cacheFolder) {
+    if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !cacheFolder) {
       emsdkFolder = tc.find('emsdk', emArgs.version, os.arch());
     }
 
-    if (emArgs.cacheKey && emArgs.cacheFolder) {
+    if (emArgs.cacheKey && cacheFolder) {
       try {
         try {
-          fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
+          fs.accessSync(path.join(cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
         } catch {
-          core.info(`Restore cache from "${emArgs.cacheKey}" at path "${emArgs.cacheFolder}"`);
-          await cache.restoreCache([emArgs.cacheFolder], emArgs.cacheKey);
+          core.info(`Restore cache from "${emArgs.cacheKey}" at path "${cacheFolder}"`);
+          await cache.restoreCache([cacheFolder], emArgs.cacheKey);
         }
-        fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
-        emsdkFolder = emArgs.cacheFolder;
+        fs.accessSync(path.join(cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
+        emsdkFolder = cacheFolder;
         stateHelper.setFoundInCache(true);
       } catch {
-        core.warning(`No cached files found at path "${emArgs.cacheFolder}" - downloading and caching emsdk.`);
-        await io.rmRF(emArgs.cacheFolder);
-        // core.debug(fs.readdirSync(emArgs.cacheFolder + '/emsdk-main').toString());
+        core.warning(`No cached files found at path "${cacheFolder}" - downloading and caching emsdk.`);
+        await io.rmRF(cacheFolder);
+        // core.debug(fs.readdirSync(cacheFolder + '/emsdk-main').toString());
       }
     }
 
     if (!emsdkFolder) {
       const emsdkArchive = await tc.downloadTool("https://github.com/emscripten-core/emsdk/archive/main.zip");
-      emsdkFolder = await tc.extractZip(emsdkArchive, emArgs.cacheFolder || undefined);
+      emsdkFolder = await tc.extractZip(emsdkArchive, cacheFolder || undefined);
     } else {
       stateHelper.setFoundInCache(true);
     }
@@ -75,7 +76,7 @@ async function run() {
 
       await exec.exec(`${emsdk} install ${emArgs.version}`);
 
-      if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.cacheFolder) {
+      if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !cacheFolder) {
         await tc.cacheDir(emsdkFolder, 'emsdk', emArgs.version, os.arch());
       }
     }
@@ -113,10 +114,11 @@ async function run() {
 async function cleanup(): Promise<void> {
   try {
     const emArgs = getEmArgs();
+    const cacheFolder = path.normalize(emArgs.cacheFolder);
 
-    if (emArgs.cacheKey && emArgs.cacheFolder && !stateHelper.foundInCache()) {
-      fs.mkdirSync(emArgs.cacheFolder, { recursive: true });
-      await cache.saveCache([emArgs.cacheFolder], emArgs.cacheKey);
+    if (emArgs.cacheKey && cacheFolder && !stateHelper.foundInCache()) {
+      fs.mkdirSync(cacheFolder, { recursive: true });
+      await cache.saveCache([cacheFolder], emArgs.cacheKey);
     }
   } catch (error) {
     core.warning(`${(error as any)?.message ?? error}`)

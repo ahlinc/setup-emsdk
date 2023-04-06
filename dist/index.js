@@ -65,32 +65,33 @@ function run() {
         try {
             const emArgs = getEmArgs();
             stateHelper.setFoundInCache(false);
+            const cacheFolder = path.normalize(emArgs.cacheFolder);
             let emsdkFolder;
-            if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.cacheFolder) {
+            if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !cacheFolder) {
                 emsdkFolder = tc.find('emsdk', emArgs.version, os.arch());
             }
-            if (emArgs.cacheKey && emArgs.cacheFolder) {
+            if (emArgs.cacheKey && cacheFolder) {
                 try {
                     try {
-                        fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
+                        fs.accessSync(path.join(cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
                     }
                     catch (_a) {
-                        core.info(`Restore cache from "${emArgs.cacheKey}" at path "${emArgs.cacheFolder}"`);
-                        yield cache.restoreCache([emArgs.cacheFolder], emArgs.cacheKey);
+                        core.info(`Restore cache from "${emArgs.cacheKey}" at path "${cacheFolder}"`);
+                        yield cache.restoreCache([cacheFolder], emArgs.cacheKey);
                     }
-                    fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
-                    emsdkFolder = emArgs.cacheFolder;
+                    fs.accessSync(path.join(cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
+                    emsdkFolder = cacheFolder;
                     stateHelper.setFoundInCache(true);
                 }
                 catch (_b) {
-                    core.warning(`No cached files found at path "${emArgs.cacheFolder}" - downloading and caching emsdk.`);
-                    yield io.rmRF(emArgs.cacheFolder);
-                    // core.debug(fs.readdirSync(emArgs.cacheFolder + '/emsdk-main').toString());
+                    core.warning(`No cached files found at path "${cacheFolder}" - downloading and caching emsdk.`);
+                    yield io.rmRF(cacheFolder);
+                    // core.debug(fs.readdirSync(cacheFolder + '/emsdk-main').toString());
                 }
             }
             if (!emsdkFolder) {
                 const emsdkArchive = yield tc.downloadTool("https://github.com/emscripten-core/emsdk/archive/main.zip");
-                emsdkFolder = yield tc.extractZip(emsdkArchive, emArgs.cacheFolder || undefined);
+                emsdkFolder = yield tc.extractZip(emsdkArchive, cacheFolder || undefined);
             }
             else {
                 stateHelper.setFoundInCache(true);
@@ -109,7 +110,7 @@ function run() {
                     yield exec.exec(`${emsdk} update`);
                 }
                 yield exec.exec(`${emsdk} install ${emArgs.version}`);
-                if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.cacheFolder) {
+                if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !cacheFolder) {
                     yield tc.cacheDir(emsdkFolder, 'emsdk', emArgs.version, os.arch());
                 }
             }
@@ -144,9 +145,10 @@ function cleanup() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const emArgs = getEmArgs();
-            if (emArgs.cacheKey && emArgs.cacheFolder && !stateHelper.foundInCache()) {
-                fs.mkdirSync(emArgs.cacheFolder, { recursive: true });
-                yield cache.saveCache([emArgs.cacheFolder], emArgs.cacheKey);
+            const cacheFolder = path.normalize(emArgs.cacheFolder);
+            if (emArgs.cacheKey && cacheFolder && !stateHelper.foundInCache()) {
+                fs.mkdirSync(cacheFolder, { recursive: true });
+                yield cache.saveCache([cacheFolder], emArgs.cacheKey);
             }
         }
         catch (error) {
