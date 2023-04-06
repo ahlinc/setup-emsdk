@@ -117,6 +117,8 @@ async function cleanup(): Promise<void> {
     const cacheFolder = path.normalize(emArgs.cacheFolder);
 
     if (emArgs.cacheKey && cacheFolder && !stateHelper.foundInCache()) {
+      const zipsPath = path.join(cacheFolder, 'emsdk-main', 'zips');
+      await io.rmRF(zipsPath);
       fs.mkdirSync(cacheFolder, { recursive: true });
       await cache.saveCache([cacheFolder], emArgs.cacheKey);
     }
