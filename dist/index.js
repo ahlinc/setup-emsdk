@@ -48,10 +48,13 @@ const os = __importStar(__nccwpck_require__(2037));
 const fs = __importStar(__nccwpck_require__(7147));
 const path = __importStar(__nccwpck_require__(1017));
 const matchers_1 = __nccwpck_require__(964);
+let foundInCache = false;
+let emsdkFolder;
+let emArgs;
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const emArgs = {
+            emArgs = {
                 version: yield core.getInput("version"),
                 noInstall: yield core.getInput("no-install"),
                 noCache: yield core.getInput("no-cache"),
@@ -60,8 +63,6 @@ function run() {
                 // XXX: update-tags is deprecated and used for backwards compatibility.
                 update: (yield core.getInput("update")) || (yield core.getInput("update-tags"))
             };
-            let emsdkFolder;
-            let foundInCache = false;
             if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.cacheFolder) {
                 emsdkFolder = yield tc.find('emsdk', emArgs.version, os.arch());
             }
@@ -122,11 +123,6 @@ function run() {
                 }
             };
             yield exec.exec(`${emsdk} construct_env`, [], { listeners: { stdline: envListener, errline: envListener } });
-            if (emArgs.cacheKey && emArgs.cacheFolder && !foundInCache && process.env.GITHUB_WORKSPACE) {
-                fs.mkdirSync(path.join(process.env.GITHUB_WORKSPACE, emArgs.cacheFolder), { recursive: true });
-                yield io.cp(path.join(emsdkFolder, 'emsdk-main'), path.join(process.env.GITHUB_WORKSPACE, emArgs.cacheFolder), { recursive: true });
-                yield cache.saveCache([emArgs.cacheFolder], emArgs.cacheKey);
-            }
         }
         catch (error) {
             if (error &&
@@ -139,7 +135,28 @@ function run() {
         }
     });
 }
-run();
+function cleanup() {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            if (emArgs.cacheKey && emArgs.cacheFolder && !foundInCache) {
+                fs.mkdirSync(emArgs.cacheFolder, { recursive: true });
+                yield cache.saveCache([emArgs.cacheFolder], emArgs.cacheKey);
+            }
+        }
+        catch (error) {
+            core.warning(`${(_a = error === null || error === void 0 ? void 0 : error.message) !== null && _a !== void 0 ? _a : error}`);
+        }
+    });
+}
+// Main
+if (!core.getState('isPost')) {
+    run();
+}
+// Post
+else {
+    cleanup();
+}
 
 
 /***/ }),

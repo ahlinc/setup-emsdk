@@ -8,9 +8,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { envRegex, pathRegex } from './matchers'
 
+let foundInCache = false;
+let emsdkFolder;
+let emArgs;
+
 async function run() {
   try {
-    const emArgs = {
+    emArgs = {
       version: await core.getInput("version"),
       noInstall: await core.getInput("no-install"),
       noCache: await core.getInput("no-cache"),
@@ -19,9 +23,6 @@ async function run() {
       // XXX: update-tags is deprecated and used for backwards compatibility.
       update: await core.getInput("update") || await core.getInput("update-tags")
     };
-
-    let emsdkFolder;
-    let foundInCache = false;
 
     if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.cacheFolder) {
       emsdkFolder = await tc.find('emsdk', emArgs.version, os.arch());
@@ -92,12 +93,6 @@ async function run() {
       }
     };
     await exec.exec(`${emsdk} construct_env`, [], {listeners: {stdline: envListener, errline: envListener}})
-
-    if (emArgs.cacheKey && emArgs.cacheFolder && !foundInCache && process.env.GITHUB_WORKSPACE) {
-      fs.mkdirSync(path.join(process.env.GITHUB_WORKSPACE, emArgs.cacheFolder), { recursive: true });
-      await io.cp(path.join(emsdkFolder, 'emsdk-main'), path.join(process.env.GITHUB_WORKSPACE, emArgs.cacheFolder), { recursive: true })
-      await cache.saveCache([emArgs.cacheFolder], emArgs.cacheKey);
-    }
   } catch (error) {
     if (error &&
       typeof error === "object" &&
@@ -111,4 +106,22 @@ async function run() {
   }
 }
 
-run();
+async function cleanup(): Promise<void> {
+  try {
+    if (emArgs.cacheKey && emArgs.cacheFolder && !foundInCache) {
+      fs.mkdirSync(emArgs.cacheFolder, { recursive: true });
+      await cache.saveCache([emArgs.cacheFolder], emArgs.cacheKey);
+    }
+  } catch (error) {
+    core.warning(`${(error as any)?.message ?? error}`)
+  }
+}
+
+// Main
+if (!core.getState('isPost')) {
+  run()
+}
+// Post
+else {
+  cleanup()
+}
