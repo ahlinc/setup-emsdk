@@ -76,14 +76,16 @@ function run() {
                         fs.accessSync(path.join(cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
                     }
                     catch (_a) {
-                        core.info(`Restore cache from "${emArgs.cacheKey}" at path "${cacheFolder}"`);
-                        yield cache.restoreCache([cacheFolder], emArgs.cacheKey);
+                        core.info(`Restoring cache from "${emArgs.cacheKey}" at path "${cacheFolder}"`);
+                        const restoredKey = yield cache.restoreCache([cacheFolder], emArgs.cacheKey);
+                        core.info(`Cache was restored from "${restoredKey}" at path "${cacheFolder}"`);
                     }
                     fs.accessSync(path.join(cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
                     emsdkFolder = cacheFolder;
                     stateHelper.setFoundInCache(true);
                 }
-                catch (_b) {
+                catch (e) {
+                    core.warning(`Got error: ${e}`);
                     core.warning(`No cached files found at path "${cacheFolder}" - downloading and caching emsdk.`);
                     yield io.rmRF(cacheFolder);
                     // core.debug(fs.readdirSync(cacheFolder + '/emsdk-main').toString());
@@ -147,6 +149,8 @@ function cleanup() {
             const emArgs = getEmArgs();
             const cacheFolder = path.normalize(emArgs.cacheFolder);
             if (emArgs.cacheKey && cacheFolder && !stateHelper.foundInCache()) {
+                const zipsPath = path.join(cacheFolder, 'emsdk-main', 'zips');
+                yield io.rmRF(zipsPath);
                 fs.mkdirSync(cacheFolder, { recursive: true });
                 yield cache.saveCache([cacheFolder], emArgs.cacheKey);
             }

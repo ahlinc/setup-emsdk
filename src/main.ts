@@ -37,13 +37,15 @@ async function run() {
         try {
           fs.accessSync(path.join(cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
         } catch {
-          core.info(`Restore cache from "${emArgs.cacheKey}" at path "${cacheFolder}"`);
-          await cache.restoreCache([cacheFolder], emArgs.cacheKey);
+          core.info(`Restoring cache from "${emArgs.cacheKey}" at path "${cacheFolder}"`);
+          const restoredKey = await cache.restoreCache([cacheFolder], emArgs.cacheKey);
+          core.info(`Cache was restored from "${restoredKey}" at path "${cacheFolder}"`);
         }
         fs.accessSync(path.join(cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
         emsdkFolder = cacheFolder;
         stateHelper.setFoundInCache(true);
-      } catch {
+      } catch (e) {
+        core.warning(`Got error: ${e}`);
         core.warning(`No cached files found at path "${cacheFolder}" - downloading and caching emsdk.`);
         await io.rmRF(cacheFolder);
         // core.debug(fs.readdirSync(cacheFolder + '/emsdk-main').toString());
