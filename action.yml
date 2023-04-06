@@ -11,8 +11,11 @@ inputs:
   no-cache:
     description: "If true will not cache any downloads with tc.cacheDir."
     default: false
-  actions-cache-folder:
-    description: "Directory to cache emsdk in. This folder will go under $GITHUB_HOME (I.e. build dir) and be cached using @actions/cache."
+  cache-key:
+    description: "Cache key that would be used for cache."
+    default: ''
+  cache-folder:
+    description: "Directory to cache emsdk in. This folder will be cached using @actions/cache."
     default: ''
   update:
     description: "Fetch package information for all the new tools and SDK versions"

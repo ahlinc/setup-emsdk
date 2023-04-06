@@ -55,33 +55,32 @@ function run() {
                 version: yield core.getInput("version"),
                 noInstall: yield core.getInput("no-install"),
                 noCache: yield core.getInput("no-cache"),
-                actionsCacheFolder: yield core.getInput("actions-cache-folder"),
+                cacheKey: yield core.getInput("cache-key"),
+                cacheFolder: yield core.getInput("cache-folder"),
                 // XXX: update-tags is deprecated and used for backwards compatibility.
                 update: (yield core.getInput("update")) || (yield core.getInput("update-tags"))
             };
             let emsdkFolder;
             let foundInCache = false;
-            if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.actionsCacheFolder) {
+            if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.cacheFolder) {
                 emsdkFolder = yield tc.find('emsdk', emArgs.version, os.arch());
             }
-            const cacheKey = `${emArgs.version}-${os.platform()}-${os.arch()}-master`;
-            if (emArgs.actionsCacheFolder && process.env.GITHUB_WORKSPACE) {
-                const fullCachePath = path.join(process.env.GITHUB_WORKSPACE, emArgs.actionsCacheFolder);
+            if (emArgs.cacheKey && emArgs.cacheFolder) {
                 try {
                     try {
-                        fs.accessSync(path.join(fullCachePath, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
+                        fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
                     }
                     catch (_a) {
-                        yield cache.restoreCache([emArgs.actionsCacheFolder], cacheKey);
+                        yield cache.restoreCache([emArgs.cacheFolder], emArgs.cacheKey);
                     }
-                    fs.accessSync(path.join(fullCachePath, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
-                    emsdkFolder = fullCachePath;
+                    fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
+                    emsdkFolder = emArgs.cacheFolder;
                     foundInCache = true;
                 }
                 catch (_b) {
-                    core.warning(`No cached files found at path "${fullCachePath}" - downloading and caching emsdk.`);
-                    yield io.rmRF(fullCachePath);
-                    // core.debug(fs.readdirSync(fullCachePath + '/emsdk-main').toString());
+                    core.warning(`No cached files found at path "${emArgs.cacheFolder}" - downloading and caching emsdk.`);
+                    yield io.rmRF(emArgs.cacheFolder);
+                    // core.debug(fs.readdirSync(emArgs.cacheFolder + '/emsdk-main').toString());
                 }
             }
             if (!emsdkFolder) {
@@ -105,7 +104,7 @@ function run() {
                     yield exec.exec(`${emsdk} update`);
                 }
                 yield exec.exec(`${emsdk} install ${emArgs.version}`);
-                if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.actionsCacheFolder) {
+                if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.cacheFolder) {
                     yield tc.cacheDir(emsdkFolder, 'emsdk', emArgs.version, os.arch());
                 }
             }
@@ -123,10 +122,10 @@ function run() {
                 }
             };
             yield exec.exec(`${emsdk} construct_env`, [], { listeners: { stdline: envListener, errline: envListener } });
-            if (emArgs.actionsCacheFolder && !foundInCache && process.env.GITHUB_WORKSPACE) {
-                fs.mkdirSync(path.join(process.env.GITHUB_WORKSPACE, emArgs.actionsCacheFolder), { recursive: true });
-                yield io.cp(path.join(emsdkFolder, 'emsdk-main'), path.join(process.env.GITHUB_WORKSPACE, emArgs.actionsCacheFolder), { recursive: true });
-                yield cache.saveCache([emArgs.actionsCacheFolder], cacheKey);
+            if (emArgs.cacheKey && emArgs.cacheFolder && !foundInCache && process.env.GITHUB_WORKSPACE) {
+                fs.mkdirSync(path.join(process.env.GITHUB_WORKSPACE, emArgs.cacheFolder), { recursive: true });
+                yield io.cp(path.join(emsdkFolder, 'emsdk-main'), path.join(process.env.GITHUB_WORKSPACE, emArgs.cacheFolder), { recursive: true });
+                yield cache.saveCache([emArgs.cacheFolder], emArgs.cacheKey);
             }
         }
         catch (error) {
