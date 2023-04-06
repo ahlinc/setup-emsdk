@@ -14,8 +14,8 @@ inputs:
   cache-key:
     description: "Cache key that would be used for cache."
     default: ''
-  cache-folder:
-    description: "Directory to cache emsdk in. This folder will be cached using @actions/cache."
+  install-folder:
+    description: "Directory to install emsdk in. This folder will be cached using @actions/cache."
     default: ''
   update:
     description: "Fetch package information for all the new tools and SDK versions"

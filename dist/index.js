@@ -66,7 +66,7 @@ function getEmArgs() {
         noInstall: core.getInput("no-install"),
         noCache: core.getInput("no-cache"),
         cacheKey: core.getInput("cache-key"),
-        cacheFolder: core.getInput("cache-folder"),
+        installFolder: core.getInput("install-folder"),
         // XXX: update-tags is deprecated and used for backwards compatibility.
         update: core.getInput("update") || core.getInput("update-tags")
     };
@@ -76,36 +76,46 @@ function run() {
         try {
             const emArgs = getEmArgs();
             stateHelper.setFoundInCache(false);
-            const cacheFolder = path.normalize(emArgs.cacheFolder);
+            const installFolder = path.normalize(emArgs.installFolder);
             let emsdkFolder;
-            if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !cacheFolder) {
+            if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !installFolder) {
                 emsdkFolder = tc.find('emsdk', emArgs.version, os.arch());
             }
-            if (emArgs.cacheKey && cacheFolder) {
+            if (emArgs.cacheKey && installFolder) {
                 try {
                     try {
-                        fs.accessSync(path.join(cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
+                        fs.accessSync(path.join(installFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
                     }
                     catch (_a) {
-                        core.info(`Restoring cache from "${emArgs.cacheKey}" at path "${cacheFolder}"`);
-                        const restoredKey = yield cache.restoreCache([cacheFolder], emArgs.cacheKey);
-                        core.info(`Cache was restored from "${restoredKey}" at path "${cacheFolder}"`);
+                        core.info(`Attempting to restore cache from "${emArgs.cacheKey}" at path "${installFolder}"`);
+                        const restoredKey = yield cache.restoreCache([installFolder], emArgs.cacheKey);
+                        if (restoredKey) {
+                            core.info(`Cache was restored from "${restoredKey}" at path "${installFolder}"`);
+                        }
+                        else {
+                            core.info(`Cache wasn't restored from "${restoredKey}" cache key`);
+                        }
                     }
-                    fs.accessSync(path.join(cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
-                    emsdkFolder = cacheFolder;
+                    fs.accessSync(path.join(installFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
+                    emsdkFolder = installFolder;
                     stateHelper.setFoundInCache(true);
                 }
                 catch (e) {
-                    core.warning(`Got error: ${e}`);
-                    console.log(getDirectoriesRecursive(cacheFolder));
-                    core.warning(`No cached files found at path "${cacheFolder}" - downloading and caching emsdk.`);
-                    yield io.rmRF(cacheFolder);
+                    core.warning(`ERR: ${e}`);
+                    try {
+                        console.log(getDirectoriesRecursive(installFolder));
+                    }
+                    catch (e) {
+                        core.warning(`ERR: ${e}`);
+                    }
+                    core.warning(`No cached files found at path "${installFolder}" - downloading and caching emsdk.`);
+                    yield io.rmRF(installFolder);
                     // core.debug(fs.readdirSync(cacheFolder + '/emsdk-main').toString());
                 }
             }
             if (!emsdkFolder) {
                 const emsdkArchive = yield tc.downloadTool("https://github.com/emscripten-core/emsdk/archive/main.zip");
-                emsdkFolder = yield tc.extractZip(emsdkArchive, cacheFolder || undefined);
+                emsdkFolder = yield tc.extractZip(emsdkArchive, installFolder || undefined);
             }
             else {
                 stateHelper.setFoundInCache(true);
@@ -124,7 +134,7 @@ function run() {
                     yield exec.exec(`${emsdk} update`);
                 }
                 yield exec.exec(`${emsdk} install ${emArgs.version}`);
-                if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !cacheFolder) {
+                if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !installFolder) {
                     yield tc.cacheDir(emsdkFolder, 'emsdk', emArgs.version, os.arch());
                 }
             }
@@ -159,12 +169,12 @@ function cleanup() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const emArgs = getEmArgs();
-            const cacheFolder = path.normalize(emArgs.cacheFolder);
-            if (emArgs.cacheKey && cacheFolder && !stateHelper.foundInCache()) {
-                const zipsPath = path.join(cacheFolder, 'emsdk-main', 'zips');
+            const installFolder = path.normalize(emArgs.installFolder);
+            if (emArgs.cacheKey && installFolder && !stateHelper.foundInCache()) {
+                const zipsPath = path.join(installFolder, 'emsdk-main', 'zips');
                 yield io.rmRF(zipsPath);
-                fs.mkdirSync(cacheFolder, { recursive: true });
-                yield cache.saveCache([cacheFolder], emArgs.cacheKey);
+                fs.mkdirSync(installFolder, { recursive: true });
+                yield cache.saveCache([installFolder], emArgs.cacheKey);
             }
         }
         catch (error) {

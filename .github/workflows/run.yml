@@ -15,13 +15,13 @@ jobs:
   actions-use-cache-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup emsdk (use cache if found, create otherwise)  
+      - name: Setup emsdk (use cache if found, create otherwise)
         uses: mymindstorm/setup-emsdk@master
         with:
           version: 2.0.20
-          actions-cache-folder: 'emsdk-cache-folder'
+          install-folder: 'emsdk-install'
           no-cache: true
-          
+
       - name: Verify
         run: emcc -v
   no-install:
@@ -36,12 +36,12 @@ jobs:
   tot:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup emsdk (use cache if found, create otherwise)  
+      - name: Setup emsdk (use cache if found, create otherwise)
         uses: mymindstorm/setup-emsdk@master
         with:
           version: tot
           no-cache: true
           update-tags: true
-          
+
       - name: Verify
         run: emcc -v
