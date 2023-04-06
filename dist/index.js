@@ -85,7 +85,7 @@ function run() {
             }
             if (!emsdkFolder) {
                 const emsdkArchive = yield tc.downloadTool("https://github.com/emscripten-core/emsdk/archive/main.zip");
-                emsdkFolder = yield tc.extractZip(emsdkArchive);
+                emsdkFolder = yield tc.extractZip(emsdkArchive, emArgs.cacheFolder || undefined);
             }
             else {
                 foundInCache = true;
