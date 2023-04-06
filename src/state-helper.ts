@@ -19,13 +19,3 @@ export function setFoundInCache(foundInCache: boolean): boolean {
   core.saveState('foundInCache', foundInCache ? 'true' : 'false');
   return foundInCache;
 }
-
-export function emsdkFolder() {
-  return core.getState('emsdkFolder');
-}
-
-export function setEmsdkFolder(emsdkFolder: string): string {
-  core.saveState('emsdkFolder', emsdkFolder);
-  return emsdkFolder;
-}
-

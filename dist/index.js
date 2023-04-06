@@ -49,26 +49,25 @@ const fs = __importStar(__nccwpck_require__(7147));
 const path = __importStar(__nccwpck_require__(1017));
 const stateHelper = __importStar(__nccwpck_require__(8647));
 const matchers_1 = __nccwpck_require__(964);
-function getArgs() {
-    return __awaiter(this, void 0, void 0, function* () {
-        return {
-            version: yield core.getInput("version"),
-            noInstall: yield core.getInput("no-install"),
-            noCache: yield core.getInput("no-cache"),
-            cacheKey: yield core.getInput("cache-key"),
-            cacheFolder: yield core.getInput("cache-folder"),
-            // XXX: update-tags is deprecated and used for backwards compatibility.
-            update: (yield core.getInput("update")) || (yield core.getInput("update-tags"))
-        };
-    });
+function getEmArgs() {
+    return {
+        version: core.getInput("version"),
+        noInstall: core.getInput("no-install"),
+        noCache: core.getInput("no-cache"),
+        cacheKey: core.getInput("cache-key"),
+        cacheFolder: core.getInput("cache-folder"),
+        // XXX: update-tags is deprecated and used for backwards compatibility.
+        update: core.getInput("update") || core.getInput("update-tags")
+    };
 }
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            let emArgs = yield getArgs();
+            const emArgs = getEmArgs();
             stateHelper.setFoundInCache(false);
+            let emsdkFolder;
             if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.cacheFolder) {
-                stateHelper.setEmsdkFolder(yield tc.find('emsdk', emArgs.version, os.arch()));
+                emsdkFolder = tc.find('emsdk', emArgs.version, os.arch());
             }
             if (emArgs.cacheKey && emArgs.cacheFolder) {
                 try {
@@ -79,7 +78,7 @@ function run() {
                         yield cache.restoreCache([emArgs.cacheFolder], emArgs.cacheKey);
                     }
                     fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
-                    stateHelper.setEmsdkFolder(emArgs.cacheFolder);
+                    emsdkFolder = emArgs.cacheFolder;
                     stateHelper.setFoundInCache(true);
                 }
                 catch (_b) {
@@ -88,14 +87,13 @@ function run() {
                     // core.debug(fs.readdirSync(emArgs.cacheFolder + '/emsdk-main').toString());
                 }
             }
-            if (!stateHelper.emsdkFolder()) {
+            if (!emsdkFolder) {
                 const emsdkArchive = yield tc.downloadTool("https://github.com/emscripten-core/emsdk/archive/main.zip");
-                stateHelper.setEmsdkFolder(yield tc.extractZip(emsdkArchive, emArgs.cacheFolder || undefined));
+                emsdkFolder = yield tc.extractZip(emsdkArchive, emArgs.cacheFolder || undefined);
             }
             else {
                 stateHelper.setFoundInCache(true);
             }
-            const emsdkFolder = stateHelper.emsdkFolder();
             let emsdk = path.join(emsdkFolder, 'emsdk-main', 'emsdk');
             if (os.platform() === "win32") {
                 emsdk = `powershell ${path.join(emsdkFolder, 'emsdk-main', 'emsdk.ps1')}`;
@@ -144,7 +142,7 @@ function cleanup() {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            let emArgs = yield getArgs();
+            const emArgs = getEmArgs();
             if (emArgs.cacheKey && emArgs.cacheFolder && !stateHelper.foundInCache()) {
                 fs.mkdirSync(emArgs.cacheFolder, { recursive: true });
                 yield cache.saveCache([emArgs.cacheFolder], emArgs.cacheKey);
@@ -156,7 +154,7 @@ function cleanup() {
     });
 }
 // Main
-if (!core.getState('isPost')) {
+if (!stateHelper.IsPost) {
     run();
 }
 // Post
@@ -209,7 +207,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.setEmsdkFolder = exports.emsdkFolder = exports.setFoundInCache = exports.foundInCache = exports.IsPost = void 0;
+exports.setFoundInCache = exports.foundInCache = exports.IsPost = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 /**
  * Indicates whether the POST action is running
@@ -229,15 +227,6 @@ function setFoundInCache(foundInCache) {
     return foundInCache;
 }
 exports.setFoundInCache = setFoundInCache;
-function emsdkFolder() {
-    return core.getState('emsdkFolder');
-}
-exports.emsdkFolder = emsdkFolder;
-function setEmsdkFolder(emsdkFolder) {
-    core.saveState('emsdkFolder', emsdkFolder);
-    return emsdkFolder;
-}
-exports.setEmsdkFolder = setEmsdkFolder;
 
 
 /***/ }),
