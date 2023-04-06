@@ -6,38 +6,40 @@ import * as io from '@actions/io';
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as stateHelper from './state-helper'
 import { envRegex, pathRegex } from './matchers'
 
-let foundInCache = false;
-let emsdkFolder;
-let emArgs;
+async function getArgs() {
+  return {
+    version: await core.getInput("version"),
+    noInstall: await core.getInput("no-install"),
+    noCache: await core.getInput("no-cache"),
+    cacheKey: await core.getInput("cache-key"),
+    cacheFolder: await core.getInput("cache-folder"),
+    // XXX: update-tags is deprecated and used for backwards compatibility.
+    update: await core.getInput("update") || await core.getInput("update-tags")
+  };
+}
 
 async function run() {
   try {
-    emArgs = {
-      version: await core.getInput("version"),
-      noInstall: await core.getInput("no-install"),
-      noCache: await core.getInput("no-cache"),
-      cacheKey: await core.getInput("cache-key"),
-      cacheFolder: await core.getInput("cache-folder"),
-      // XXX: update-tags is deprecated and used for backwards compatibility.
-      update: await core.getInput("update") || await core.getInput("update-tags")
-    };
+    let emArgs = await getArgs();
+    stateHelper.setFoundInCache(false);
 
     if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.cacheFolder) {
-      emsdkFolder = await tc.find('emsdk', emArgs.version, os.arch());
+      stateHelper.setEmsdkFolder(await tc.find('emsdk', emArgs.version, os.arch()));
     }
 
     if (emArgs.cacheKey && emArgs.cacheFolder) {
       try {
         try {
-         fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
+          fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
         } catch {
           await cache.restoreCache([emArgs.cacheFolder], emArgs.cacheKey);
         }
         fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
-        emsdkFolder = emArgs.cacheFolder;
-        foundInCache = true;
+        stateHelper.setEmsdkFolder(emArgs.cacheFolder);
+        stateHelper.setFoundInCache(true);
       } catch {
         core.warning(`No cached files found at path "${emArgs.cacheFolder}" - downloading and caching emsdk.`);
         await io.rmRF(emArgs.cacheFolder);
@@ -45,13 +47,14 @@ async function run() {
       }
     }
 
-    if (!emsdkFolder) {
+    if (!stateHelper.emsdkFolder()) {
       const emsdkArchive = await tc.downloadTool("https://github.com/emscripten-core/emsdk/archive/main.zip");
-      emsdkFolder = await tc.extractZip(emsdkArchive, emArgs.cacheFolder || undefined);
+      stateHelper.setEmsdkFolder(await tc.extractZip(emsdkArchive, emArgs.cacheFolder || undefined));
     } else {
-      foundInCache = true;
+      stateHelper.setFoundInCache(true);
     }
 
+    const emsdkFolder = stateHelper.emsdkFolder();
     let emsdk = path.join(emsdkFolder, 'emsdk-main', 'emsdk');
 
     if (os.platform() === "win32") {
@@ -64,7 +67,7 @@ async function run() {
       return;
     }
 
-    if (!foundInCache) {
+    if (!stateHelper.foundInCache()) {
       if (emArgs.update) {
         await exec.exec(`${emsdk} update`);
       }
@@ -92,7 +95,7 @@ async function run() {
         return;
       }
     };
-    await exec.exec(`${emsdk} construct_env`, [], {listeners: {stdline: envListener, errline: envListener}})
+    await exec.exec(`${emsdk} construct_env`, [], { listeners: { stdline: envListener, errline: envListener } })
   } catch (error) {
     if (error &&
       typeof error === "object" &&
@@ -108,7 +111,8 @@ async function run() {
 
 async function cleanup(): Promise<void> {
   try {
-    if (emArgs.cacheKey && emArgs.cacheFolder && !foundInCache) {
+    let emArgs = await getArgs();
+    if (emArgs.cacheKey && emArgs.cacheFolder && !stateHelper.foundInCache()) {
       fs.mkdirSync(emArgs.cacheFolder, { recursive: true });
       await cache.saveCache([emArgs.cacheFolder], emArgs.cacheKey);
     }

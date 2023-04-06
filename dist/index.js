@@ -47,24 +47,28 @@ const io = __importStar(__nccwpck_require__(7436));
 const os = __importStar(__nccwpck_require__(2037));
 const fs = __importStar(__nccwpck_require__(7147));
 const path = __importStar(__nccwpck_require__(1017));
+const stateHelper = __importStar(__nccwpck_require__(8647));
 const matchers_1 = __nccwpck_require__(964);
-let foundInCache = false;
-let emsdkFolder;
-let emArgs;
+function getArgs() {
+    return __awaiter(this, void 0, void 0, function* () {
+        return {
+            version: yield core.getInput("version"),
+            noInstall: yield core.getInput("no-install"),
+            noCache: yield core.getInput("no-cache"),
+            cacheKey: yield core.getInput("cache-key"),
+            cacheFolder: yield core.getInput("cache-folder"),
+            // XXX: update-tags is deprecated and used for backwards compatibility.
+            update: (yield core.getInput("update")) || (yield core.getInput("update-tags"))
+        };
+    });
+}
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            emArgs = {
-                version: yield core.getInput("version"),
-                noInstall: yield core.getInput("no-install"),
-                noCache: yield core.getInput("no-cache"),
-                cacheKey: yield core.getInput("cache-key"),
-                cacheFolder: yield core.getInput("cache-folder"),
-                // XXX: update-tags is deprecated and used for backwards compatibility.
-                update: (yield core.getInput("update")) || (yield core.getInput("update-tags"))
-            };
+            let emArgs = yield getArgs();
+            stateHelper.setFoundInCache(false);
             if (emArgs.version !== "latest" && emArgs.version !== "tot" && emArgs.noCache === "false" && !emArgs.cacheFolder) {
-                emsdkFolder = yield tc.find('emsdk', emArgs.version, os.arch());
+                stateHelper.setEmsdkFolder(yield tc.find('emsdk', emArgs.version, os.arch()));
             }
             if (emArgs.cacheKey && emArgs.cacheFolder) {
                 try {
@@ -75,8 +79,8 @@ function run() {
                         yield cache.restoreCache([emArgs.cacheFolder], emArgs.cacheKey);
                     }
                     fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
-                    emsdkFolder = emArgs.cacheFolder;
-                    foundInCache = true;
+                    stateHelper.setEmsdkFolder(emArgs.cacheFolder);
+                    stateHelper.setFoundInCache(true);
                 }
                 catch (_b) {
                     core.warning(`No cached files found at path "${emArgs.cacheFolder}" - downloading and caching emsdk.`);
@@ -84,13 +88,14 @@ function run() {
                     // core.debug(fs.readdirSync(emArgs.cacheFolder + '/emsdk-main').toString());
                 }
             }
-            if (!emsdkFolder) {
+            if (!stateHelper.emsdkFolder()) {
                 const emsdkArchive = yield tc.downloadTool("https://github.com/emscripten-core/emsdk/archive/main.zip");
-                emsdkFolder = yield tc.extractZip(emsdkArchive, emArgs.cacheFolder || undefined);
+                stateHelper.setEmsdkFolder(yield tc.extractZip(emsdkArchive, emArgs.cacheFolder || undefined));
             }
             else {
-                foundInCache = true;
+                stateHelper.setFoundInCache(true);
             }
+            const emsdkFolder = stateHelper.emsdkFolder();
             let emsdk = path.join(emsdkFolder, 'emsdk-main', 'emsdk');
             if (os.platform() === "win32") {
                 emsdk = `powershell ${path.join(emsdkFolder, 'emsdk-main', 'emsdk.ps1')}`;
@@ -100,7 +105,7 @@ function run() {
                 core.exportVariable("EMSDK", path.join(emsdkFolder, 'emsdk-main'));
                 return;
             }
-            if (!foundInCache) {
+            if (!stateHelper.foundInCache()) {
                 if (emArgs.update) {
                     yield exec.exec(`${emsdk} update`);
                 }
@@ -139,7 +144,8 @@ function cleanup() {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            if (emArgs.cacheKey && emArgs.cacheFolder && !foundInCache) {
+            let emArgs = yield getArgs();
+            if (emArgs.cacheKey && emArgs.cacheFolder && !stateHelper.foundInCache()) {
                 fs.mkdirSync(emArgs.cacheFolder, { recursive: true });
                 yield cache.saveCache([emArgs.cacheFolder], emArgs.cacheKey);
             }
@@ -170,6 +176,68 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.envRegex = exports.pathRegex = void 0;
 exports.pathRegex = new RegExp(/PATH \+= (.+)/);
 exports.envRegex = new RegExp(/(\S+) = (.+)/);
+
+
+/***/ }),
+
+/***/ 8647:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.setEmsdkFolder = exports.emsdkFolder = exports.setFoundInCache = exports.foundInCache = exports.IsPost = void 0;
+const core = __importStar(__nccwpck_require__(2186));
+/**
+ * Indicates whether the POST action is running
+ */
+exports.IsPost = !!core.getState('isPost');
+// Publish a variable so that when the POST action runs, it can determine it should run the cleanup logic.
+// This is necessary since we don't have a separate entry point.
+if (!exports.IsPost) {
+    core.saveState('isPost', 'true');
+}
+function foundInCache() {
+    return core.getState('foundInCache') === 'true';
+}
+exports.foundInCache = foundInCache;
+function setFoundInCache(foundInCache) {
+    core.saveState('foundInCache', foundInCache ? 'true' : 'false');
+    return foundInCache;
+}
+exports.setFoundInCache = setFoundInCache;
+function emsdkFolder() {
+    return core.getState('emsdkFolder');
+}
+exports.emsdkFolder = emsdkFolder;
+function setEmsdkFolder(emsdkFolder) {
+    core.saveState('emsdkFolder', emsdkFolder);
+    return emsdkFolder;
+}
+exports.setEmsdkFolder = setEmsdkFolder;
 
 
 /***/ }),
