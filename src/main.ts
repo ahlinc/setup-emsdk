@@ -36,6 +36,7 @@ async function run() {
         try {
           fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
         } catch {
+          core.info(`Restore cache from "${emArgs.cacheKey}" at path "${emArgs.cacheFolder}"`);
           await cache.restoreCache([emArgs.cacheFolder], emArgs.cacheKey);
         }
         fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);

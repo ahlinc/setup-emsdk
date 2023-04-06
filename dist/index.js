@@ -75,6 +75,7 @@ function run() {
                         fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
                     }
                     catch (_a) {
+                        core.info(`Restore cache from "${emArgs.cacheKey}" at path "${emArgs.cacheFolder}"`);
                         yield cache.restoreCache([emArgs.cacheFolder], emArgs.cacheKey);
                     }
                     fs.accessSync(path.join(emArgs.cacheFolder, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
