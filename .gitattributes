@@ -1,2 +1,4 @@
 node_modules/* linguist-vendored
 *.js linguist-vendored
+package-lock.json -diff
+dist/* -diff
