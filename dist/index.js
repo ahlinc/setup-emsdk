@@ -49,6 +49,17 @@ const fs = __importStar(__nccwpck_require__(7147));
 const path = __importStar(__nccwpck_require__(1017));
 const stateHelper = __importStar(__nccwpck_require__(8647));
 const matchers_1 = __nccwpck_require__(964);
+function flatten(lists) {
+    return lists.reduce((a, b) => a.concat(b), []);
+}
+function getDirectories(srcpath) {
+    return fs.readdirSync(srcpath)
+        .map(file => path.join(srcpath, file))
+        .filter(path => fs.statSync(path).isDirectory());
+}
+function getDirectoriesRecursive(srcpath) {
+    return [srcpath, ...flatten(getDirectories(srcpath).map(getDirectoriesRecursive))];
+}
 function getEmArgs() {
     return {
         version: core.getInput("version"),
@@ -86,6 +97,7 @@ function run() {
                 }
                 catch (e) {
                     core.warning(`Got error: ${e}`);
+                    console.log(getDirectoriesRecursive(cacheFolder));
                     core.warning(`No cached files found at path "${cacheFolder}" - downloading and caching emsdk.`);
                     yield io.rmRF(cacheFolder);
                     // core.debug(fs.readdirSync(cacheFolder + '/emsdk-main').toString());

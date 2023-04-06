@@ -9,6 +9,21 @@ import * as path from 'path';
 import * as stateHelper from './state-helper';
 import { envRegex, pathRegex } from './matchers'
 
+function flatten(lists) {
+  return lists.reduce((a, b) => a.concat(b), []);
+}
+
+function getDirectories(srcpath) {
+  return fs.readdirSync(srcpath)
+    .map(file => path.join(srcpath, file))
+    .filter(path => fs.statSync(path).isDirectory());
+}
+
+function getDirectoriesRecursive(srcpath) {
+  return [srcpath, ...flatten(getDirectories(srcpath).map(getDirectoriesRecursive))];
+}
+
+
 function getEmArgs() {
   return {
     version: core.getInput("version"),
@@ -46,6 +61,7 @@ async function run() {
         stateHelper.setFoundInCache(true);
       } catch (e) {
         core.warning(`Got error: ${e}`);
+        console.log(getDirectoriesRecursive(cacheFolder));
         core.warning(`No cached files found at path "${cacheFolder}" - downloading and caching emsdk.`);
         await io.rmRF(cacheFolder);
         // core.debug(fs.readdirSync(cacheFolder + '/emsdk-main').toString());
