@@ -26,41 +26,56 @@ async function run() {
       emsdkFolder = await tc.find('emsdk', emArgs.version, os.arch());
     }
 
-    const cacheKey = `${emArgs.version}-${ os.platform() }-${os.arch()}-master`;
+    const cacheKey = `${emArgs.version}-${os.platform()}-${os.arch()}-master`;
     if (emArgs.actionsCacheFolder && process.env.GITHUB_WORKSPACE) {
       const fullCachePath = path.join(process.env.GITHUB_WORKSPACE, emArgs.actionsCacheFolder);
       try {
         try {
-         fs.accessSync(path.join(fullCachePath, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
+          fs.accessSync(path.join(fullCachePath, 'emsdk', 'emsdk'), fs.constants.X_OK);
         } catch {
           await cache.restoreCache([emArgs.actionsCacheFolder], cacheKey);
         }
-        fs.accessSync(path.join(fullCachePath, 'emsdk-main', 'emsdk'), fs.constants.X_OK);
+        fs.accessSync(path.join(fullCachePath, 'emsdk', 'emsdk'), fs.constants.X_OK);
         emsdkFolder = fullCachePath;
         foundInCache = true;
       } catch {
         core.warning(`No cached files found at path "${fullCachePath}" - downloading and caching emsdk.`);
         await io.rmRF(fullCachePath);
-        // core.debug(fs.readdirSync(fullCachePath + '/emsdk-main').toString());
+        // core.debug(fs.readdirSync(fullCachePath + '/emsdk').toString());
       }
     }
 
     if (!emsdkFolder) {
-      const emsdkArchive = await tc.downloadTool("https://github.com/emscripten-core/emsdk/archive/main.zip");
+      let emsdkInstallerUrl;
+      if (emArgs.version !== "latest" && emArgs.version !== "tot") {
+        emsdkInstallerUrl = `https://github.com/emscripten-core/emsdk/archive/refs/tags/${emArgs.version}.zip`
+      } else {
+        emsdkInstallerUrl = "https://github.com/emscripten-core/emsdk/archive/main.zip";
+      }
+      const emsdkArchive = await tc.downloadTool(emsdkInstallerUrl);
       emsdkFolder = await tc.extractZip(emsdkArchive);
+      let srcDir;
+      if (emArgs.version !== "latest" && emArgs.version !== "tot") {
+        srcDir = path.join(emsdkFolder, `emsdk-${emArgs.version}`);
+      } else {
+        srcDir = path.join(emsdkFolder, 'emsdk-main');
+      }
+      fs.rename(srcDir, path.join(emsdkFolder, 'emsdk'), (err) => {
+        if (err) throw err;
+      });
     } else {
       foundInCache = true;
     }
 
-    let emsdk = path.join(emsdkFolder, 'emsdk-main', 'emsdk');
+    let emsdk = path.join(emsdkFolder, 'emsdk', 'emsdk');
 
     if (os.platform() === "win32") {
-      emsdk = `powershell ${path.join(emsdkFolder, 'emsdk-main', 'emsdk.ps1')}`;
+      emsdk = `powershell ${path.join(emsdkFolder, 'emsdk', 'emsdk.ps1')}`;
     }
 
     if (emArgs.noInstall === "true") {
-      core.addPath(path.join(emsdkFolder, 'emsdk-main'));
-      core.exportVariable("EMSDK", path.join(emsdkFolder, 'emsdk-main'));
+      core.addPath(path.join(emsdkFolder, 'emsdk'));
+      core.exportVariable("EMSDK", path.join(emsdkFolder, 'emsdk'));
       return;
     }
 
@@ -92,15 +107,15 @@ async function run() {
         return;
       }
     };
-    await exec.exec(`${emsdk} construct_env`, [], {listeners: {stdline: envListener, errline: envListener}})
+    await exec.exec(`${emsdk} construct_env`, [], { listeners: { stdline: envListener, errline: envListener } })
 
     if (emArgs.actionsCacheFolder && !foundInCache && process.env.GITHUB_WORKSPACE) {
       fs.mkdirSync(path.join(process.env.GITHUB_WORKSPACE, emArgs.actionsCacheFolder), { recursive: true });
-      await io.cp(path.join(emsdkFolder, 'emsdk-main'), path.join(process.env.GITHUB_WORKSPACE, emArgs.actionsCacheFolder), { recursive: true })
+      await io.cp(path.join(emsdkFolder, 'emsdk'), path.join(process.env.GITHUB_WORKSPACE, emArgs.actionsCacheFolder), { recursive: true })
       await cache.saveCache([emArgs.actionsCacheFolder], cacheKey);
     }
   } catch (error) {
-    if (error && 
+    if (error &&
       typeof error === "object" &&
       "message" in error &&
       (
